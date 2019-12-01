@@ -79,8 +79,15 @@ void increment_node(char* name){
         trav_node = trav_node->next;
     }
     struct count_node *new_node = malloc(sizeof (struct count_node));
-    new_node->name = malloc(strlen(name) + 1);
-    strcpy(new_node->name, name);
+
+    if(strcmp(name, "") != 0){
+        new_node->name = malloc(strlen(name) + 1);
+        strcpy(new_node->name, name);
+        new_node->name[strlen(name)] = '\0';
+    }
+    else{
+        new_node->name = "";
+    }
     new_node->number = 1;
     new_node->next = NULL;
     
@@ -139,15 +146,15 @@ bool content_validator_collector(char* line){
 
     for(int i = 0; i < field_count; i ++){
         int length = strlen(items[i]);
+        if(strcmp(items[i], "\"") == 0){
+            return false;
+        }
         if(strcmp(items[i], "") != 0){
             if (items[i][length - 1] == '\"' ^ items[i][0] == '\"'){
                 return false;
             }
         }
-    }
 
-
-    for(int i = 0; i < field_count; i ++){
         if(strcmp(fields[i], "") == 0 || fields[i][0] != '\"'){
             if(!(items[i][0] != '\"')){
                 return false;
@@ -159,7 +166,7 @@ bool content_validator_collector(char* line){
             }
         }
     }
-    
+
     increment_node(items[name_index]);
 
     // Free the memory
@@ -182,6 +189,10 @@ bool fields_validator(){
             if (fields[i][length - 1] == '\"' ^ fields[i][0] == '\"'){
                 return false;
             }
+        }
+
+        if(strcmp(fields[i], "\"") == 0){
+            return false;
         }
 
         if(strcmp(fields[i], "name") == 0 || strcmp(fields[i], "\"name\"") == 0){
@@ -236,10 +247,21 @@ void print_top_ten(){
         trav_node = head->next;
         while(trav_node != NULL){
             if(trav_node->number == times_array[max_index]){
-                printf("%s: %d\n", trav_node->name, trav_node->number);
+                if(strcmp(trav_node->name, "") != 0 && trav_node->name[0] == '\"'){
+                    char* remove_quotes = (char*)malloc(strlen(trav_node->name) - 1);
+                    memcpy(remove_quotes, (trav_node->name) + 1, strlen(trav_node->name) - 2);
+                    remove_quotes[strlen(trav_node->name) - 2] = '\0';
+                    printf("%s: %d\n", remove_quotes, trav_node->number);
+                    free(remove_quotes);
+                }
+                else{
+                    printf("%s: %d\n", trav_node->name, trav_node->number);
+                }
                 max_index ++;
                 prev_node->next = trav_node->next;
-                free(trav_node->name);
+                if(strcmp(trav_node->name, "") != 0){
+                    free(trav_node->name);
+                }
                 free(trav_node);
                 trav_node = prev_node->next;
                 break;
@@ -255,7 +277,9 @@ void print_top_ten(){
     while(trav_node != NULL){
         struct count_node *temp = trav_node;
         trav_node = trav_node->next;
-        free(temp->name);
+        if(strcmp(temp->name, "") != 0){
+            free(temp->name);
+        }
         free(temp);
     }
 
@@ -285,7 +309,7 @@ int main(int argc, char *argv[]) {
     // Go to the end of file.
     fseek(file_stream, 0, SEEK_END);
     // Get the postion of offset which is the same as file size.
-    if(ftell(file_stream) == 0){
+    if(ftell(file_stream) == 0 || ftell(file_stream) > 20000 * 1024){
         exit_invalid(file_stream);
     }
 
@@ -328,6 +352,10 @@ int main(int argc, char *argv[]) {
 
     int line_number = 1;
     while((read_bytes = getline(&line, &len, file_stream)) != -1){
+        if(line_number > 20000){
+            exit_invalid(file_stream);
+        }
+
         if(read_bytes > 1024){
             exit_invalid(file_stream);
         }
@@ -349,10 +377,6 @@ int main(int argc, char *argv[]) {
         free(temp);
         free(line);
         line = NULL;
-    }
-
-    if(line_number > 20000){
-        exit_invalid(file_stream);
     }
 
     for(int i = 0; i < field_count; i ++){

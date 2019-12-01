@@ -8,15 +8,16 @@ int field_count;
 char** fields;
 int name_index;
 
+// The linked node to store infos
 struct count_node
 {
     char* name;
     int number;
-    struct count_node * next;
+    struct count_node *next;
 };
 
-
-// Problem: \0 strlen?
+// Globle head of nodes
+struct count_node *head;
 
 // invalid exit
 void exit_invalid(FILE* stream){
@@ -42,18 +43,55 @@ void fields_creation(char* header_line){
     int prev = 0;
     for(int i = 0; i < strlen(header_line); i ++){
         if(header_line[i] == ','){
-            fields[index] = malloc(i - prev + 1);
-            memcpy(fields[index], &header_line[prev], i - prev + 1);
-            fields[index][i - prev] = '\0';
-            index ++;
-            prev = i + 1;
+            if(prev == i){
+                fields[index] = "";
+                index ++;
+                prev = i + 1;
+            }
+            else{
+                fields[index] = (char*)malloc(i - prev + 1);
+                memcpy(fields[index], &header_line[prev], i - prev);
+                fields[index][i - prev] = '\0';
+                index ++;
+                prev = i + 1;
+            }
         }
     }
 
     // The last field
-    fields[index] = malloc(strlen(header_line) - prev + 1);
-    memcpy(fields[index], &header_line[prev], strlen(header_line) - prev + 1);
-    fields[index][strlen(header_line) - prev] = '\0';
+    if(strlen(header_line) == prev){
+        fields[index] = "";
+    }
+    else{
+        fields[index] = malloc(strlen(header_line) - prev + 1);
+        strncpy(fields[index], &header_line[prev], strlen(header_line) - prev);
+        fields[index][strlen(header_line) - prev] = '\0';
+    }
+}
+
+void increment_node(char* name){
+    struct count_node *trav_node = head->next;
+    while(trav_node != NULL){
+        if(strcmp(trav_node->name, name) == 0){
+            trav_node->number ++;
+            return;
+        }
+        trav_node = trav_node->next;
+    }
+    struct count_node *new_node = malloc(sizeof (struct count_node));
+    new_node->name = malloc(strlen(name) + 1);
+    strcpy(new_node->name, name);
+    new_node->number = 1;
+    new_node->next = NULL;
+    
+    if(head->next == NULL){
+        head->next = new_node;
+    }
+    else{
+        struct count_node *second_node = head->next;
+        head->next = new_node;
+        new_node->next = second_node;
+    }
 }
 
 // validate the content and store the name and tweets count
@@ -74,46 +112,61 @@ bool content_validator_collector(char* line){
     int prev = 0;
     for(int i = 0; i < strlen(line); i ++){
         if(line[i] == ','){
-            items[index] = malloc(i - prev + 1);
-            memcpy(items[index], &line[prev], i - prev + 1);
-            items[index][i - prev] = '\0';
-            index ++;
-            prev = i + 1;
+            if(prev == i){
+                items[index] = "";
+                index ++;
+                prev = i + 1;
+            }
+            else{
+                items[index] = malloc(i - prev + 1);
+                memcpy(items[index], &line[prev], i - prev + 1);
+                items[index][i - prev] = '\0';
+                index ++;
+                prev = i + 1;
+            }
         }
     }
 
     // The last field
-    items[index] = malloc(strlen(line) - prev + 1);
-    memcpy(items[index], &line[prev], strlen(line) - prev + 1);
-    items[index][strlen(line) - prev] = '\0';
+    if(strlen(line) == prev){
+        items[index] = "";
+    }
+    else{
+        items[index] = malloc(strlen(line) - prev + 1);
+        memcpy(items[index], &line[prev], strlen(line) - prev + 1);
+        items[index][strlen(line) - prev] = '\0';
+    }
 
     for(int i = 0; i < field_count; i ++){
         int length = strlen(items[i]);
-        if (items[i][length - 1] == '\"' ^ items[i][0] == '\"'){
-            return false;
+        if(strcmp(items[i], "") != 0){
+            if (items[i][length - 1] == '\"' ^ items[i][0] == '\"'){
+                return false;
+            }
         }
     }
 
 
     for(int i = 0; i < field_count; i ++){
-        if(fields[i][0] == '\"'){
-            if(!(items[i][0] == '\"')){
-                return false;
-            }
-        }
-        else{
+        if(strcmp(fields[i], "") == 0 || fields[i][0] != '\"'){
             if(!(items[i][0] != '\"')){
                 return false;
             }
         }
+        else{
+            if(!(items[i][0] == '\"')){
+                return false;
+            }
+        }
     }
-
-    // Store the name and add the count
-
+    
+    increment_node(items[name_index]);
 
     // Free the memory
     for(int i = 0; i < field_count; i ++){
-        free(items[i]);
+        if(strcmp(items[i], "") != 0){
+            free(items[i]);
+        }
     }
 
     free(items);
@@ -123,10 +176,12 @@ bool content_validator_collector(char* line){
 bool fields_validator(){
     int name_count = 0;
     for(int i = 0; i < field_count; i ++){
-        // printf("%s\n", fields[i]);
         int length = strlen(fields[i]);
-        if (fields[i][length - 1] == '\"' ^ fields[i][0] == '\"'){
-            return false;
+
+        if(strcmp(fields[i], "") != 0){
+            if (fields[i][length - 1] == '\"' ^ fields[i][0] == '\"'){
+                return false;
+            }
         }
 
         if(strcmp(fields[i], "name") == 0 || strcmp(fields[i], "\"name\"") == 0){
@@ -143,6 +198,71 @@ bool fields_validator(){
     return true;
 }
 
+int comparator(const void * num1, const void * num2) 
+{
+    int n1 = *((int*)num1);
+    int n2 = *((int*)num2);
+    return -(n1 - n2);
+}
+
+
+void print_top_ten(){
+    if(head->next == NULL){
+        return;
+    }
+
+    struct count_node *trav_node = head->next;
+    int count = 0;
+    while(trav_node != NULL){
+        count ++;
+        trav_node = trav_node->next;
+    }
+
+    int* times_array = malloc(count * sizeof(int));
+
+    trav_node = head->next;
+    int index = 0;
+    while(trav_node != NULL){
+        times_array[index] = trav_node->number;
+        index ++;
+        trav_node = trav_node->next;
+    }
+
+    qsort(times_array, count, sizeof(int), comparator);
+    int max_index = 0;
+
+    for(int i = 0; i < 10; i ++){
+        struct count_node *prev_node = head;
+        trav_node = head->next;
+        while(trav_node != NULL){
+            if(trav_node->number == times_array[max_index]){
+                printf("%s: %d\n", trav_node->name, trav_node->number);
+                max_index ++;
+                prev_node->next = trav_node->next;
+                free(trav_node->name);
+                free(trav_node);
+                trav_node = prev_node->next;
+                break;
+            }
+
+            prev_node = trav_node;
+            trav_node = trav_node->next;
+        }
+    }
+
+
+    trav_node = head->next;
+    while(trav_node != NULL){
+        struct count_node *temp = trav_node;
+        trav_node = trav_node->next;
+        free(temp->name);
+        free(temp);
+    }
+
+    free(head);
+    free(times_array);
+}
+
 int main(int argc, char *argv[]) {
     // Only one arg is accepted.
     if(argc != 2){
@@ -155,7 +275,7 @@ int main(int argc, char *argv[]) {
     file_stream = fopen(argv[1], "r");
     ssize_t read_bytes;
     size_t len = 0;
-    char *line;
+    char *line = NULL;
 
     // Check if the file exist or not.
     if(file_stream == NULL){
@@ -178,8 +298,9 @@ int main(int argc, char *argv[]) {
             exit_invalid(file_stream);
         }
 
-        char* temp = malloc(strlen(line));
+        char* temp = malloc(strlen(line) + 1);
         strcpy(temp, line);
+        temp[strlen(line)] = '\0';
         strtok(temp, "\r\n");
         strtok(NULL, "\n");
 
@@ -199,26 +320,49 @@ int main(int argc, char *argv[]) {
         exit_invalid(file_stream);
     }
 
+    head = malloc(sizeof(struct count_node));
+    head->next = NULL;
+    head->number = -1;
+    free(line);
+    line = NULL;
+
     int line_number = 1;
     while((read_bytes = getline(&line, &len, file_stream)) != -1){
         if(read_bytes > 1024){
             exit_invalid(file_stream);
         }
 
-        char* temp = malloc(strlen(line));
+        char* temp = malloc(strlen(line) + 1);
         strcpy(temp, line);
+        temp[strlen(line)] = '\0';
         strtok(temp, "\r\n");
         strtok(NULL, "\n");
 
-        // Empty line: what to do? invalid?
-        if(strcmp(line, "") == 0){
+        if(strcmp(temp, "") == 0){
             exit_invalid(file_stream);
         }
 
-        if(!content_validator_collector(temp)){
+        if(!content_validator_collector(line)){
             exit_invalid(file_stream);
         }
-
+        line_number ++;
         free(temp);
+        free(line);
+        line = NULL;
     }
+
+    if(line_number > 20000){
+        exit_invalid(file_stream);
+    }
+
+    for(int i = 0; i < field_count; i ++){
+        if(strcmp(fields[i], "") != 0){
+            free(fields[i]);
+        }
+    }
+
+    free(line);
+    free(fields);
+    print_top_ten();
+    fclose(file_stream);
 }

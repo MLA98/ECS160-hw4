@@ -25,10 +25,12 @@ void exit_invalid(FILE* stream){
         fclose(stream);
     }
 
-    fprintf(stderr, "The file is not valid.\n");
+    fprintf(stderr, "Invalid input format.\n");
     exit(1);
 }
 
+
+// Create a global array for storing the headers.
 void fields_creation(char* header_line){
     int comma_count = 0;
     for(int i = 0; i < strlen(header_line); i ++){
@@ -36,7 +38,7 @@ void fields_creation(char* header_line){
             comma_count ++;
         }
     }
-
+    
     field_count = comma_count + 1;
     fields = malloc(field_count * sizeof(char*));
     int index = 0;
@@ -69,6 +71,8 @@ void fields_creation(char* header_line){
     }
 }
 
+
+// Add the tweeter into the node or increment if exists.
 void increment_node(char* name){
     struct count_node *trav_node = head->next;
     while(trav_node != NULL){
@@ -180,6 +184,7 @@ bool content_validator_collector(char* line){
     return true;
 }
 
+// Validate the fields.
 bool fields_validator(){
     int name_count = 0;
     for(int i = 0; i < field_count; i ++){
@@ -216,7 +221,7 @@ int comparator(const void * num1, const void * num2)
     return -(n1 - n2);
 }
 
-
+// Print the final result of max tweeters.
 void print_top_ten(){
     if(head->next == NULL){
         return;
@@ -328,7 +333,7 @@ int main(int argc, char *argv[]) {
         strtok(temp, "\r\n");
         strtok(NULL, "\n");
 
-        // Empty line: what to do? invalid?
+        // Empty header, exit.
         if(strcmp(line, "") == 0){
             exit_invalid(file_stream);
         }
@@ -350,6 +355,7 @@ int main(int argc, char *argv[]) {
     free(line);
     line = NULL;
 
+    // Go through the left lines of the file, check and collect.
     int line_number = 1;
     while((read_bytes = getline(&line, &len, file_stream)) != -1){
         if(line_number > 20000){
@@ -385,6 +391,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
+    // free memory.
     free(line);
     free(fields);
     print_top_ten();
